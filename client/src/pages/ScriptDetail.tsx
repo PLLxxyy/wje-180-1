@@ -14,6 +14,7 @@ export default function ScriptDetail() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewContent, setReviewContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
   const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -59,6 +60,31 @@ export default function ScriptDetail() {
     }
   };
 
+  const handleToggleFavorite = async () => {
+    if (!user) {
+      showToast('请先登录', 'error');
+      return;
+    }
+    if (!id) return;
+
+    setFavoriteLoading(true);
+    try {
+      if (script.is_favorited) {
+        await api.unfavoriteScript(id);
+        showToast('已取消收藏', 'success');
+        setScript({ ...script, is_favorited: false, favorite_count: Math.max(0, (script.favorite_count || 0) - 1) });
+      } else {
+        await api.favoriteScript(id);
+        showToast('收藏成功！有新场次时会通知您', 'success');
+        setScript({ ...script, is_favorited: true, favorite_count: (script.favorite_count || 0) + 1 });
+      }
+    } catch (err: any) {
+      showToast(err.message || '操作失败', 'error');
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
   if (loading) {
     return <div className="loading"><div className="spinner"></div><span>加载中...</span></div>;
   }
@@ -81,21 +107,38 @@ export default function ScriptDetail() {
     <div className="page">
       <div className="container">
         <div className="detail-header">
-          <div className={`detail-cover ${getTypeCoverClass(script.type)}`} style={{ borderRadius: 'var(--radius-sm)' }}>
-            {getTypeEmoji(script.type)}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+            <div className={`detail-cover ${getTypeCoverClass(script.type)}`} style={{ borderRadius: 'var(--radius-sm)', flexShrink: 0, width: 200, height: 200, margin: 0 }}>
+              {getTypeEmoji(script.type)}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div className="detail-title" style={{ margin: 0 }}>{script.name}</div>
+                <button
+                  className={`btn ${script.is_favorited ? 'btn-warning' : 'btn-ghost'}`}
+                  onClick={handleToggleFavorite}
+                  disabled={favoriteLoading}
+                  style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                >
+                  {favoriteLoading ? '处理中...' : (script.is_favorited ? '❤️ 已收藏' : '🤍 收藏')}
+                  {script.favorite_count > 0 && (
+                    <span style={{ marginLeft: 4, fontSize: 12, opacity: 0.8 }}>({script.favorite_count})</span>
+                  )}
+                </button>
+              </div>
+              <div className="detail-meta" style={{ marginTop: 8 }}>
+                <span className={`tag ${getTypeTagClass(script.type)}`}>{script.type}</span>
+                <span className="tag tag-default">难度: {renderDifficulty(script.difficulty)}</span>
+                <span className="tag tag-default">👥 {script.min_players}-{script.max_players}人</span>
+                <span className="tag tag-default">⏱ {script.duration}分钟</span>
+                <span className="tag tag-default">⭐ {script.avg_rating > 0 ? script.avg_rating.toFixed(1) : '暂无评分'}</span>
+              </div>
+              <p style={{ fontSize: 13, color: 'var(--text-light)', marginBottom: 16, marginTop: 8 }}>
+                店家: {script.store_title || script.store_name}
+                {script.store_address && ` · ${script.store_address}`}
+              </p>
+            </div>
           </div>
-          <div className="detail-title">{script.name}</div>
-          <div className="detail-meta">
-            <span className={`tag ${getTypeTagClass(script.type)}`}>{script.type}</span>
-            <span className="tag tag-default">难度: {renderDifficulty(script.difficulty)}</span>
-            <span className="tag tag-default">👥 {script.min_players}-{script.max_players}人</span>
-            <span className="tag tag-default">⏱ {script.duration}分钟</span>
-            <span className="tag tag-default">⭐ {script.avg_rating > 0 ? script.avg_rating.toFixed(1) : '暂无评分'}</span>
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--text-light)', marginBottom: 16 }}>
-            店家: {script.store_title || script.store_name}
-            {script.store_address && ` · ${script.store_address}`}
-          </p>
           <div className="detail-desc">{script.description}</div>
           {script.tags && JSON.parse(typeof script.tags === 'string' ? script.tags : '[]').length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>

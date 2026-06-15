@@ -48,6 +48,14 @@ export const api = {
   deleteScript: (id: string) =>
     request(`/scripts/${id}`, { method: 'DELETE' }),
 
+  // Favorites
+  favoriteScript: (id: string) =>
+    request(`/scripts/${id}/favorite`, { method: 'POST' }),
+  unfavoriteScript: (id: string) =>
+    request(`/scripts/${id}/favorite`, { method: 'DELETE' }),
+  checkFavorite: (id: string) => request(`/scripts/${id}/favorite`),
+  getMyFavorites: () => request('/scripts/my/favorites'),
+
   // Rooms
   getRooms: (params?: Record<string, string>) => {
     const searchParams = new URLSearchParams(params);

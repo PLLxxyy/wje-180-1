@@ -113,6 +113,29 @@ router.post('/', authMiddleware, storeAuth, (req: AuthRequest, res: Response) =>
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id, scriptId, req.user!.id, startTime, endTime, maxPlayers, location || user?.store_address || '', price || 0);
 
+    // Notify all users who favorited this script
+    const favoritedUsers = db.prepare(
+      'SELECT user_id FROM favorites WHERE script_id = ?'
+    ).all(scriptId) as any[];
+
+    if (favoritedUsers.length > 0) {
+      const storeInfo = db.prepare('SELECT store_name FROM users WHERE id = ?').get(req.user!.id) as any;
+      const notifyStmt = db.prepare(`
+        INSERT INTO notifications (id, user_id, title, content, type) VALUES (?, ?, ?, ?, ?)
+      `);
+
+      for (const favUser of favoritedUsers) {
+        const notifyId = uuidv4();
+        notifyStmt.run(
+          notifyId,
+          favUser.user_id,
+          '收藏剧本新场次通知',
+          `您收藏的剧本「${script.name}」有新场次啦！${storeInfo?.store_name || '店家'}将于 ${startTime} 开一场，${maxPlayers}人本，快去看看吧~`,
+          'new_room'
+        );
+      }
+    }
+
     res.status(201).json({ message: '场次创建成功', id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

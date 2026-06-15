@@ -45,7 +45,36 @@ router.get('/', (req: AuthRequest, res: Response) => {
       query += ' ORDER BY s.created_at DESC';
     }
 
-    const scripts = db.prepare(query).all(...params);
+    const scripts = db.prepare(query).all(...params) as any[];
+
+    if (req.user) {
+      const favoriteIds = db.prepare(
+        'SELECT script_id FROM favorites WHERE user_id = ?'
+      ).all(req.user.id).map((f: any) => f.script_id);
+      const scriptsWithFav = scripts.map(s => ({
+        ...s,
+        is_favorited: favoriteIds.includes(s.id)
+      }));
+      res.json(scriptsWithFav);
+    } else {
+      res.json(scripts);
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get my favorite scripts
+router.get('/my/favorites', authMiddleware, (req: AuthRequest, res: Response) => {
+  try {
+    const scripts = db.prepare(`
+      SELECT s.*, u.nickname as store_name, u.store_name as store_title, f.created_at as favorited_at
+      FROM favorites f
+      JOIN scripts s ON f.script_id = s.id
+      JOIN users u ON s.store_id = u.id
+      WHERE f.user_id = ?
+      ORDER BY f.created_at DESC
+    `).all(req.user!.id);
     res.json(scripts);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -84,7 +113,77 @@ router.get('/:id', (req: AuthRequest, res: Response) => {
       ORDER BY r.start_time ASC
     `).all(req.params.id);
 
-    res.json({ ...script, reviews, rooms });
+    // Check if favorited by current user
+    let is_favorited = false;
+    if (req.user) {
+      const fav = db.prepare(
+        'SELECT id FROM favorites WHERE user_id = ? AND script_id = ?'
+      ).get(req.user.id, req.params.id);
+      is_favorited = !!fav;
+    }
+
+    // Get favorite count
+    const favCount = db.prepare(
+      'SELECT COUNT(*) as count FROM favorites WHERE script_id = ?'
+    ).get(req.params.id) as any;
+
+    res.json({ ...script, reviews, rooms, is_favorited, favorite_count: favCount.count });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Favorite a script
+router.post('/:id/favorite', authMiddleware, (req: AuthRequest, res: Response) => {
+  try {
+    const script = db.prepare('SELECT id, name FROM scripts WHERE id = ?').get(req.params.id) as any;
+    if (!script) {
+      return res.status(404).json({ error: '剧本不存在' });
+    }
+
+    const existing = db.prepare(
+      'SELECT id FROM favorites WHERE user_id = ? AND script_id = ?'
+    ).get(req.user!.id, req.params.id);
+
+    if (existing) {
+      return res.status(400).json({ error: '已经收藏过该剧本' });
+    }
+
+    const id = uuidv4();
+    db.prepare(
+      'INSERT INTO favorites (id, user_id, script_id) VALUES (?, ?, ?)'
+    ).run(id, req.user!.id, req.params.id);
+
+    res.status(201).json({ message: '收藏成功' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Unfavorite a script
+router.delete('/:id/favorite', authMiddleware, (req: AuthRequest, res: Response) => {
+  try {
+    const result = db.prepare(
+      'DELETE FROM favorites WHERE user_id = ? AND script_id = ?'
+    ).run(req.user!.id, req.params.id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: '未收藏该剧本' });
+    }
+
+    res.json({ message: '取消收藏成功' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Check favorite status
+router.get('/:id/favorite', authMiddleware, (req: AuthRequest, res: Response) => {
+  try {
+    const fav = db.prepare(
+      'SELECT id FROM favorites WHERE user_id = ? AND script_id = ?'
+    ).get(req.user!.id, req.params.id);
+    res.json({ is_favorited: !!fav });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

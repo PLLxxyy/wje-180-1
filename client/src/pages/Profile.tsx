@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
 import { useAuth, useToast } from '../App';
 import StarRating from '../components/StarRating';
-import { formatDate, getTypeTagClass, getTypeEmoji } from '../utils/helpers';
+import { formatDate, getTypeTagClass, getTypeCoverClass, getTypeEmoji } from '../utils/helpers';
 
 export default function Profile() {
   const [profile, setProfile] = useState<any>(null);
@@ -80,7 +80,7 @@ export default function Profile() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-3" style={{ marginBottom: 24 }}>
+        <div className="grid grid-4" style={{ marginBottom: 24 }}>
           <div className="stat-card">
             <div className="stat-card-value">{profile.stats.totalPlayed}</div>
             <div className="stat-card-label">玩过的剧本</div>
@@ -88,6 +88,10 @@ export default function Profile() {
           <div className="stat-card">
             <div className="stat-card-value">{profile.stats.totalReviewed}</div>
             <div className="stat-card-label">写过的评价</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-card-value">{profile.stats.totalFavorited || 0}</div>
+            <div className="stat-card-label">收藏的剧本</div>
           </div>
           <div className="stat-card">
             <div className="stat-card-value">{profile.stats.typeDistribution?.length || 0}</div>
@@ -119,6 +123,9 @@ export default function Profile() {
         <div className="tabs">
           <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
             玩过的剧本
+          </button>
+          <button className={`tab ${activeTab === 'favorites' ? 'active' : ''}`} onClick={() => setActiveTab('favorites')}>
+            我的收藏
           </button>
           <button className={`tab ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => setActiveTab('reviews')}>
             我的评价
@@ -155,6 +162,49 @@ export default function Profile() {
                 <div className="empty-state-icon">🎭</div>
                 <p className="empty-state-text">还没有玩过任何剧本</p>
                 <button className="btn btn-primary" onClick={() => navigate('/rooms')}>去组局广场看看</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Favorite Scripts */}
+        {activeTab === 'favorites' && (
+          <div>
+            {profile.favoriteScripts && profile.favoriteScripts.length > 0 ? (
+              <div className="grid grid-3">
+                {profile.favoriteScripts.map((script: any) => (
+                  <div
+                    key={script.id}
+                    className="script-card"
+                    onClick={() => navigate(`/scripts/${script.id}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className={`script-card-cover ${getTypeCoverClass(script.type)}`}>
+                      {getTypeEmoji(script.type)}
+                    </div>
+                    <div className="script-card-body">
+                      <div className="script-card-title">{script.name}</div>
+                      <div className="script-card-meta">
+                        <span className={`tag ${getTypeTagClass(script.type)}`}>{script.type}</span>
+                        <span className="tag tag-default">⭐ {script.avg_rating > 0 ? script.avg_rating.toFixed(1) : '暂无'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-lighter)' }}>
+                          {script.store_title || script.store_name}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--primary)' }}>❤️ 已收藏</span>
+                      </div>
+                      <p className="script-card-desc" style={{ marginTop: 8 }}>{script.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <div className="empty-state-icon">❤️</div>
+                <p className="empty-state-text">还没有收藏任何剧本</p>
+                <p style={{ fontSize: 13, color: 'var(--text-light)', marginBottom: 16 }}>收藏感兴趣的剧本，有新场次时会第一时间通知您</p>
+                <button className="btn btn-primary" onClick={() => navigate('/scripts')}>去剧本库逛逛</button>
               </div>
             )}
           </div>

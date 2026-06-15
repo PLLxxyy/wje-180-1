@@ -31,9 +31,20 @@ router.get('/profile', authMiddleware, (req: AuthRequest, res: Response) => {
       ORDER BY rv.created_at DESC
     `).all(req.user!.id);
 
+    // Get favorite scripts
+    const favoriteScripts = db.prepare(`
+      SELECT s.*, u.nickname as store_name, u.store_name as store_title, f.created_at as favorited_at
+      FROM favorites f
+      JOIN scripts s ON f.script_id = s.id
+      JOIN users u ON s.store_id = u.id
+      WHERE f.user_id = ?
+      ORDER BY f.created_at DESC
+    `).all(req.user!.id);
+
     // Stats
     const totalPlayed = db.prepare("SELECT COUNT(*) as count FROM bookings WHERE user_id = ? AND status = 'completed'").get(req.user!.id) as any;
     const totalReviewed = db.prepare('SELECT COUNT(*) as count FROM reviews WHERE user_id = ?').get(req.user!.id) as any;
+    const totalFavorited = db.prepare('SELECT COUNT(*) as count FROM favorites WHERE user_id = ?').get(req.user!.id) as any;
 
     // Type distribution
     const typeDistribution = db.prepare(`
@@ -57,10 +68,12 @@ router.get('/profile', authMiddleware, (req: AuthRequest, res: Response) => {
       stats: {
         totalPlayed: totalPlayed.count,
         totalReviewed: totalReviewed.count,
+        totalFavorited: totalFavorited.count,
         typeDistribution
       },
       playedScripts,
-      reviews
+      reviews,
+      favoriteScripts
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

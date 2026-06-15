@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
+import { useAuth, useToast } from '../App';
 import { getTypeTagClass, getTypeCoverClass, getTypeEmoji, renderDifficulty } from '../utils/helpers';
 
 export default function ScriptList() {
@@ -9,6 +10,9 @@ export default function ScriptList() {
   const [search, setSearch] = useState('');
   const [type, setType] = useState('all');
   const [sort, setSort] = useState('latest');
+  const [favoriteLoadingId, setFavoriteLoadingId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,6 +37,32 @@ export default function ScriptList() {
 
   const handleSearch = () => {
     loadScripts();
+  };
+
+  const handleToggleFavorite = async (e: React.MouseEvent, scriptId: string, isFavorited: boolean) => {
+    e.stopPropagation();
+    if (!user) {
+      showToast('请先登录', 'error');
+      return;
+    }
+
+    setFavoriteLoadingId(scriptId);
+    try {
+      if (isFavorited) {
+        await api.unfavoriteScript(scriptId);
+        showToast('已取消收藏', 'success');
+      } else {
+        await api.favoriteScript(scriptId);
+        showToast('收藏成功！有新场次时会通知您', 'success');
+      }
+      setScripts(prev => prev.map(s =>
+        s.id === scriptId ? { ...s, is_favorited: !isFavorited } : s
+      ));
+    } catch (err: any) {
+      showToast(err.message || '操作失败', 'error');
+    } finally {
+      setFavoriteLoadingId(null);
+    }
   };
 
   return (
@@ -84,6 +114,31 @@ export default function ScriptList() {
               >
                 <div className={`script-card-cover ${getTypeCoverClass(script.type)}`}>
                   {getTypeEmoji(script.type)}
+                  <button
+                    onClick={(e) => handleToggleFavorite(e, script.id, !!script.is_favorited)}
+                    disabled={favoriteLoadingId === script.id}
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      background: 'rgba(255,255,255,0.95)',
+                      border: 'none',
+                      borderRadius: 20,
+                      width: 32,
+                      height: 32,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: favoriteLoadingId === script.id ? 'not-allowed' : 'pointer',
+                      fontSize: 16,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      opacity: favoriteLoadingId === script.id ? 0.6 : 1,
+                      transition: 'all 0.2s',
+                    }}
+                    title={script.is_favorited ? '取消收藏' : '收藏'}
+                  >
+                    {favoriteLoadingId === script.id ? '⏳' : (script.is_favorited ? '❤️' : '🤍')}
+                  </button>
                 </div>
                 <div className="script-card-body">
                   <div className="script-card-title">{script.name}</div>

@@ -108,6 +108,16 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
+  CREATE TABLE IF NOT EXISTS favorites (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    script_id TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (script_id) REFERENCES scripts(id),
+    UNIQUE(user_id, script_id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_scripts_store_id ON scripts(store_id);
   CREATE INDEX IF NOT EXISTS idx_rooms_script_id ON rooms(script_id);
   CREATE INDEX IF NOT EXISTS idx_rooms_store_id ON rooms(store_id);
@@ -116,6 +126,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
   CREATE INDEX IF NOT EXISTS idx_reviews_script_id ON reviews(script_id);
   CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+  CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
+  CREATE INDEX IF NOT EXISTS idx_favorites_script_id ON favorites(script_id);
 `);
 
 export default db;
