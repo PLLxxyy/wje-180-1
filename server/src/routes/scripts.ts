@@ -1,12 +1,12 @@
 import { Router, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../db';
-import { authMiddleware, storeAuth, AuthRequest } from '../middleware/auth';
+import { authMiddleware, storeAuth, optionalAuth, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
 // Get all scripts (public)
-router.get('/', (req: AuthRequest, res: Response) => {
+router.get('/', optionalAuth, (req: AuthRequest, res: Response) => {
   try {
     const { type, difficulty, search, store_id, sort } = req.query;
     let query = `
@@ -82,7 +82,7 @@ router.get('/my/favorites', authMiddleware, (req: AuthRequest, res: Response) =>
 });
 
 // Get single script
-router.get('/:id', (req: AuthRequest, res: Response) => {
+router.get('/:id', optionalAuth, (req: AuthRequest, res: Response) => {
   try {
     const script = db.prepare(`
       SELECT s.*, u.nickname as store_name, u.store_name as store_title, u.store_address
